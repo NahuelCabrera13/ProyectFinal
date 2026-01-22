@@ -4,7 +4,7 @@
 **Fecha:** 21/01/2026  
 **Versión:** 1.0
 
----
+----
 
 ## 1. Objetivos del Proyecto
 
