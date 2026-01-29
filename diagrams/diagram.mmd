@@ -1,0 +1,39 @@
+graph TD
+    User((Usuario))
+    
+    subgraph Frontend [Frontend]
+        UI[Interfaz de Usuario]
+        Auth[Autenticación]
+    end
+    
+    subgraph Backend [Backend]
+        API[API REST]
+        Logic[Lógica de Negocio]
+        AuthService[Servicio de Autenticación]
+    end
+    
+    subgraph Data [Capa de Datos]
+        DB[(PostgreSQL)]
+    end
+    
+
+
+    User -->|"Interactúa"| UI
+    User -->|"Log in"| Auth
+    
+    Auth -->|"POST /login"| API
+    UI -->|"1. Solicita Datos (Token)"| API
+    
+    API -->|"2. Valida Token"| AuthService
+    AuthService -->|"Token Válido"| API
+    
+    API -->|"3. Procesa Solicitud"| Logic
+    
+    Logic -->|"4. Consulta/Actualiza"| DB
+    DB -->|"5. Retorna Datos"| Logic
+    
+    Logic -->|"6. Respuesta"| API
+    API -->|"7. Datos JSON"| UI
+
+    classDef box fill:#f9f9f9,stroke:#333,stroke-width:2px;
+    class Frontend,Backend,Data box;
