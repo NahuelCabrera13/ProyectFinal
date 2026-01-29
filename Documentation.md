@@ -27,8 +27,11 @@ El sistema utiliza una infraestructura en la nube basada en **Cloud Run** para g
 
 * **Frontend:** Flutter (Mobile) y Next.js + Tailwind (Desktop).
 * **BFF (Backend for Frontend):** Node.js.
-* **IA Core:** Python con modelos **LSTM** (para memoria de eventos anteriores y secuencias) y **XGBoost**.
+
 * **Agente:** Gemini API para la interpretación de lenguaje natural.
+
+* **Persitencia:** Modelo hibrido de 2 bases de datos para optimizacion y rapidez
+
 
 ---
 
@@ -37,7 +40,6 @@ El sistema utiliza una infraestructura en la nube basada en **Cloud Run** para g
 ### Modelo de Datos Híbrido
 1.  **PostgreSQL (Relacional):** Control estricto de inventario, usuarios y transacciones.
 2.  **MongoDB (NoSQL):** Catálogo de productos con **esquema flexible**, permitiendo que cada cliente defina sus propios atributos.
-3.  **Redis:** Caché de alto rendimiento y sistema de notificaciones en tiempo real.
 
 ### Estructura Física
 * El sistema mapea el centro de almacenaje mediante **Estanterías** y **Racks**, permitiendo un seguimiento exacto de la ubicación de cada producto.
@@ -46,12 +48,33 @@ El sistema utiliza una infraestructura en la nube basada en **Cloud Run** para g
 
 ## 3. Sequence Diagram (Resumen de Proceso)
 
-| Paso | Actor | Acción |
-| :--- | :--- | :--- |
-| 1 | Usuario | Envía consulta de texto: "¿Qué stock hay en el Rack B?" |
-| 2 | Backend | Gemini interpreta el texto y genera la intención de búsqueda. |
-| 3 | DB | Se consulta PostgreSQL para obtener la cantidad exacta. |
-| 4 | Agente | Gemini formatea el dato y responde de forma natural. |
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Usuario
+    participant Frontend
+    participant Backend as "Backend (Node.js)"
+    participant Gemini as "Gemini API (AI)"
+    participant DB as "PostgreSQL"
+
+    Usuario->>Frontend: Escribe: "¿Qué stock hay en el Rack B?"
+    Frontend->>Backend: POST /api/chat { text, tenantId }
+
+    Note over Backend, Gemini: Fase de Interpretación
+    Backend->>Gemini: Prompt: "Extraer intención de: ¿Qué stock hay en el Rack B?"
+    Gemini-->>Backend: JSON: { "intent": "GET_STOCK", "rack": "B" }
+
+    Note over Backend, DB: Consulta a Base de Datos
+    Backend->>DB: SELECT * FROM inventory WHERE rack_code = 'B'
+    DB-->>Backend: Datos: [Prod X: 50, Prod Y: 10]
+
+    Note over Backend, Gemini: Generación de Lenguaje Natural
+    Backend->>Gemini: Prompt: "Redacta respuesta: En Rack B hay 50 de X y 10 de Y"
+    Gemini-->>Backend: "En el Rack B encontré 50 unidades de X y 10 de Y."
+
+    Backend-->>Frontend: Envía respuesta final
+    Frontend-->>Usuario: Muestra mensaje en el chat
+```
 
 ---
 
