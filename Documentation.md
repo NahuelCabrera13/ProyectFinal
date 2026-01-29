@@ -23,7 +23,6 @@ Este documento detalla la arquitectura, el diseño de datos y las estrategias de
 
 El sistema utiliza una infraestructura en la nube basada en **Cloud Run** para garantizar que cada empresa (tenant) tenga su entorno aislado.
 
-![Arquitectura del Sistema AIStock](./arquitectura.png)
 
 * **Frontend:** Flutter (Mobile) y Next.js + Tailwind (Desktop).
 * **BFF (Backend for Frontend):** Node.js.
