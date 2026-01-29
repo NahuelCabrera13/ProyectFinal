@@ -4,7 +4,7 @@ Este documento detalla la arquitectura, el diseño de datos y las estrategias de
 
 ---
 
-## 0. User Stories and Mockups
+#### 📄 0. User Stories and Mockups
 
 ### Actores del Sistema
 * **Gerente de Depósito:** Supervisión global, análisis de racks y movimientos entre depósitos.
@@ -19,38 +19,330 @@ Este documento detalla la arquitectura, el diseño de datos y las estrategias de
 
 ---
 
-## 1. Design System Architecture
+#### 📄 1. Design System Architecture
 
 El sistema utiliza una infraestructura en la nube basada en **Cloud Run** para garantizar que cada empresa (tenant) tenga su entorno aislado.
 
 
 * **Frontend:** Flutter (Mobile) y Next.js + Tailwind (Desktop).
 * **BFF (Backend for Frontend):** Node.js.
-* **IA Core:** Python con modelos **LSTM** (para memoria de eventos anteriores y secuencias) y **XGBoost**.
+
 * **Agente:** Gemini API para la interpretación de lenguaje natural.
+
+* **Persitencia:** Modelo hibrido de 2 bases de datos para optimizacion y rapidez
+
 
 ---
 
-## 2. Components and Database Design
+#### 📄 Tarea 2 — Componentes, Clases y Diseño de Base de Datos
+* **2.1** Componentes del Sistema
+    El sistema utiliza una arquitectura de Backend for Frontend (BFF) con persistencia políglota.
 
-### Modelo de Datos Híbrido
-1.  **PostgreSQL (Relacional):** Control estricto de inventario, usuarios y transacciones.
-2.  **MongoDB (NoSQL):** Catálogo de productos con **esquema flexible**, permitiendo que cada cliente defina sus propios atributos.
-3.  **Redis:** Caché de alto rendimiento y sistema de notificaciones en tiempo real.
+    **Frontend** (Mobile - Flutter & Desktop - Next.js):
 
-### Estructura Física
-* El sistema mapea el centro de almacenaje mediante **Estanterías** y **Racks**, permitiendo un seguimiento exacto de la ubicación de cada producto.
+    **Responsabilidad:** Capa de presentación.
+
+    **Mobile:** Enfocado en operarios (escaneo, movimientos rápidos, consulta en planta).
+
+    **Desktop:** Enfocado en administradores (gestión de racks, ABM de productos, dashboard).
+
+    **Interacción:** Se comunica exclusivamente con el Backend (Node.js) vía REST/JSON. No accede a la BD ni a la IA directamente.
+
+    * **Backend (Node.js):**
+
+    **Responsabilidad:** Orquestador de lógica de negocio, autenticación, autorización y validación. Actúa como intermediario entre el usuario, los datos y la inteligencia artificial.
+
+    **Interacción:** Recibe peticiones del Frontend. Consulta PostgreSQL para datos relacionales y MongoDB para fichas de productos. Invoca a la API de Gemini para procesamiento de texto.
+
+    **Agente** de IA (Gemini API):
+
+    **Responsabilidad:** Procesamiento de Lenguaje Natural (NLP).
+
+    **Funciones:**
+
+    Input: Interpretar la intención del usuario (ej: "mover stock") y extraer entidades (ej: "Rack A", "Producto X").
+
+    Output: Generar respuestas en lenguaje natural basadas en los datos estructurados que le provee el backend.
+
+    Restricción: No almacena contexto a largo plazo ni entrena modelos.
+
+    **Base de Datos Relacional (PostgreSQL):**
+
+    Responsabilidad: Integridad referencial y datos estructurados. Almacena Tenants, Usuarios, Racks, Conteos de Inventario (IDs y cantidades) y Logs de movimientos.
+
+    **Base de Datos Documental (MongoDB):**
+
+    Responsabilidad: Flexibilidad de esquema. Almacena la información descriptiva de los Productos. Dado que cada tenant puede vender cosas distintas (ej: uno vende ropa con "talla/color", otro vende electrónica con "voltaje/potencia"), se requiere un esquema flexible.
+
+
+# 📂2.2 Clases del Backend (Descripción UML)
+
+A continuación, se definen las clases principales que residen en la capa de lógica del Backend (**Node.js**).
+
+> [!IMPORTANT]
+> **Nota de Implementación:** Todos los métodos asumen manejo asíncrono (**Promises / Async-Await**).
+
+---
+
+### 📊 Diagrama de Clases General
+Visualización de las entidades y sus métodos principales:
+
+```mermaid
+classDiagram
+    class Tenant {
+        +UUID id
+        +String companyName
+        +Enum status
+        +isActive() Boolean
+    }
+    class User {
+        +UUID id
+        +UUID tenantId
+        +String name
+        +role Enum
+        +hasPermission(permission) Boolean
+    }
+    class Product {
+        +String id
+        +UUID tenantId
+        +String sku
+        +JSON attributes
+        +validateAttributes() Boolean
+    }
+    class Rack {
+        +UUID id
+        +String code
+        +location String
+        +getStock() InventoryItem[]
+    }
+    class InventoryItem {
+        +UUID id
+        +Integer quantity
+        +increase(amount)
+        +decrease(amount)
+    }
+    class AIService {
+        +String apiKey
+        +interpretIntent(text)
+        +formatResponse(data, query)
+    }
+
+    Tenant "1" -- "*" User
+    Tenant "1" -- "*" Product
+    Product "1" -- "*" InventoryItem
+    Rack "1" -- "*" InventoryItem
+```
+
+
+#### 📄 2.3 Diseño de Base de Datos
+A. Base de Datos Relacional — PostgreSQL (ERD)
+Este diagrama representa la estructura rígida para manejar la ubicación y cantidad del inventario, asegurando consistencia transaccional.
+.
+
+```mermaid
+erDiagram
+    TENANTS ||--o{ USERS : "has"
+    TENANTS ||--o{ RACKS : "owns"
+    TENANTS {
+        uuid id PK
+        string company_name
+        string status
+    }
+
+    USERS {
+        uuid id PK
+        uuid tenant_id FK
+        string email
+        string password_hash
+        string role
+    }
+
+    RACKS ||--o{ INVENTORY_ITEMS : "contains"
+    RACKS ||--o{ STOCK_MOVEMENTS_FROM : "source_of"
+    RACKS ||--o{ STOCK_MOVEMENTS_TO : "dest_of"
+    RACKS {
+        uuid id PK
+        uuid tenant_id FK
+        string code
+        string location_desc
+    }
+
+    INVENTORY_ITEMS {
+        uuid id PK
+        string product_id "Ref a Mongo"
+        uuid rack_id FK
+        int quantity
+        timestamp last_updated
+    }
+
+    STOCK_MOVEMENTS {
+        uuid id PK
+        string product_id "Ref a Mongo"
+        uuid from_rack_id FK "Nullable"
+        uuid to_rack_id FK "Nullable"
+        int quantity
+        timestamp created_at
+        uuid user_id FK
+    }
+
+    %% Relaciones para Stock Movements
+    RACKS ||--|{ STOCK_MOVEMENTS : "origin/dest"
+    USERS ||--o{ STOCK_MOVEMENTS : "executes"
+```
+
+---
+
+## 💾 B. Base de Datos Documental — MongoDB
+
+Se utiliza para almacenar la información descriptiva de los productos, permitiendo que cada **Tenant** defina sus propios atributos sin afectar la estructura global.
+
+### 📁 Colección: `products`
+
+Esta colección maneja un esquema híbrido: campos fijos para integridad del sistema y un objeto flexible para datos comerciales.
+
+#### 📄 Estructura del Documento (Ejemplo)
+
+```json
+{
+  "_id": "64b8f...scan", 
+  "tenant_id": "uuid-del-tenant-postgresql",
+  "sku": "PROD-001",
+  "name": "Zapatilla Running X",
+  "description": "Zapatilla de alto rendimiento",
+  "attributes": {
+      "size": 42,
+      "color": "Rojo",
+      "material": "Sintético",
+      "batch_number": "L-2024"
+  },
+  "created_at": "2024-01-20T10:00:00Z"
+}
+```
+* Campos Obligatorios: _id, tenant_id (para aislamiento), sku, name.
+
+* Campos Opcionales/Flexibles: Todo lo contenido dentro del objeto attributes.
+
+#### 📄 2.4 Frontend — Componentes UI
+* Login: Formulario simple (Email/Pass). Al loguearse, el backend determina el tenant_id del usuario y carga la configuración correspondiente.
+
+* Dashboard: Vista resumen. Muestra métricas simples (Total de productos, Racks casi llenos, últimos movimientos). Sin predicciones.
+
+* Gestión de Productos (Catalog): Tabla con buscador. Permite crear/editar productos (Define el JSON que va a Mongo).
+
+* Gestión de Racks: Vista de lista o grilla de ubicaciones físicas. Permite ver el contenido actual de un rack.
+
+* Movimientos de Stock: Interfaz transaccional. Selectores: "Desde Rack A" -> "Hacia Rack B" -> "Producto" -> "Cantidad". Botón de confirmar.
+
+* **Chatbot Assistant:**
+
+        UI: Botón flotante o panel lateral.
+
+        Input: Campo de texto libre.
+
+        Output: Burbujas de chat. Muestra texto plano ("Hay 5 unidades...") y, si corresponde, tarjetas de datos simples (mini tabla de resultados).
 
 ---
 
 ## 3. Sequence Diagram (Resumen de Proceso)
 
-| Paso | Actor | Acción |
-| :--- | :--- | :--- |
-| 1 | Usuario | Envía consulta de texto: "¿Qué stock hay en el Rack B?" |
-| 2 | Backend | Gemini interpreta el texto y genera la intención de búsqueda. |
-| 3 | DB | Se consulta PostgreSQL para obtener la cantidad exacta. |
-| 4 | Agente | Gemini formatea el dato y responde de forma natural. |
+Secuencia 1 — Consulta de Stock por Chatbot
+Caso: Usuario pregunta "¿Qué stock hay en el Rack B?". Nota: El Backend actúa como puente. Gemini solo "entiende" y luego "redacta", no consulta la DB.
+
+
+```mermaid
+sequenceDiagram
+    participant User as Usuario
+    participant FE as Frontend
+    participant BE as Backend (Node)
+    participant AI as Gemini API
+    participant DB as PostgreSQL
+
+    User->>FE: Escribe: "¿Qué stock hay en el Rack B?"
+    FE->>BE: POST /api/chat (text, tenantId)
+    
+    rect rgb(240, 248, 255)
+        note right of BE: Interpretación
+        BE->>AI: Prompt: "Interpreta intención: '¿Qué stock hay en el Rack B?'"
+        AI-->>BE: JSON: { intent: "GET_STOCK", filters: { rack_code: "B" } }
+    end
+
+    rect rgb(255, 250, 240)
+        note right of BE: Consulta de Datos
+        BE->>DB: SELECT * FROM racks WHERE code='B' AND tenant_id=...
+        DB-->>BE: RackID: 123
+        BE->>DB: SELECT * FROM inventory_items WHERE rack_id=123
+        DB-->>BE: List: [{productId: "X", qty: 50}, {productId: "Y", qty: 10}]
+    end
+
+    rect rgb(240, 248, 255)
+        note right of BE: Generación de Respuesta
+        BE->>AI: Prompt: "Genera respuesta natural con estos datos: Rack B tiene Prod X (50), Prod Y (10)"
+        AI-->>BE: Texto: "En el Rack B encontré 50 unidades del Producto X y 10 del Producto Y."
+    end
+
+    BE-->>FE: JSON { response: "En el Rack B..." }
+    FE-->>User: Muestra mensaje en el chat
+```
+
+Secuencia 2 — Movimiento de Stock
+Caso: Mover mercancía físicamente de un lugar a otro.
+
+
+```mermaid
+sequenceDiagram
+    participant User as Usuario
+    participant FE as Frontend
+    participant BE as Backend (Node)
+    participant DB as PostgreSQL
+
+    User->>FE: Solicita Mover: 10 u. Prod X del Rack A al Rack B
+    FE->>BE: POST /api/movements (fromRack, toRack, prodId, qty)
+    
+    BE->>BE: validateToken() & hasPermission()
+
+    rect rgb(255, 230, 230)
+        note right of BE: Transacción Atómica
+        BE->>DB: BEGIN TRANSACTION
+        
+        BE->>DB: SELECT quantity FROM inventory_items WHERE rack='A' AND prod='X'
+        DB-->>BE: qty: 15 (Validación OK, 15 >= 10)
+        
+        BE->>DB: UPDATE inventory_items SET qty = qty - 10 WHERE rack='A'
+        BE->>DB: INSERT/UPDATE inventory_items SET qty = qty + 10 WHERE rack='B'
+        BE->>DB: INSERT INTO stock_movements (log data...)
+        
+        BE->>DB: COMMIT
+    end
+
+    BE-->>FE: HTTP 200 OK (Success)
+    FE-->>User: Muestra notificación "Movimiento exitoso"
+
+```
+
+Secuencia 3 — Creación de Producto
+Caso: Alta de un nuevo producto con atributos flexibles (MongoDB).
+
+```mermaid
+sequenceDiagram
+    participant User as Usuario
+    participant FE as Frontend
+    participant BE as Backend (Node)
+    participant Mongo as MongoDB
+
+    User->>FE: Completa form: SKU "T-100", Nombre "Camisa", Talla "L"
+    FE->>BE: POST /api/products (JSON data)
+    
+    BE->>BE: validateAttributes() (Reglas básicas)
+
+    rect rgb(230, 255, 230)
+        note right of BE: Persistencia Documental
+        BE->>Mongo: db.products.insertOne({ tenant_id, sku, name, attributes... })
+        Mongo-->>BE: Ack (ObjectId: 507f1f77bcf86...)
+    end
+
+    BE-->>FE: HTTP 201 Created (Product ID)
+    FE-->>User: Muestra "Producto creado correctamente"
+```
 
 ---
 

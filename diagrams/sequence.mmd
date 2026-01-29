@@ -1,0 +1,26 @@
+sequenceDiagram
+    autonumber
+    participant Usuario
+    participant Frontend
+    participant Backend as "Backend (Node.js)"
+    participant Gemini as "Gemini API (AI)"
+    participant DB as "PostgreSQL"
+
+    Usuario->>Frontend: Escribe: "¿Qué stock hay en el Rack B?"
+    Frontend->>Backend: POST /api/chat { text, tenantId }
+
+    Note over Backend, Gemini: Fase de Interpretación
+    Backend->>Gemini: Prompt: "Extraer intención de: ¿Qué stock hay en el Rack B?"
+    Gemini-->>Backend: JSON: { "intent": "GET_STOCK", "rack": "B" }
+
+    Note over Backend, DB: Consulta a Base de Datos
+    Backend->>DB: SELECT * FROM inventory WHERE rack_code = 'B'
+    DB-->>Backend: Datos: [Prod X: 50, Prod Y: 10]
+
+    Note over Backend, Gemini: Generación de Lenguaje Natural
+    Backend->>Gemini: Prompt: "Redacta respuesta: En Rack B hay 50 de X y 10 de Y"
+    Gemini-->>Backend: "En el Rack B encontré 50 unidades de X y 10 de Y."
+
+    Backend-->>Frontend: Envía respuesta final
+    Frontend-->>Usuario: Muestra mensaje en el chat
+// ...existing code...
