@@ -21,17 +21,75 @@ Este documento detalla la arquitectura, el diseño de datos y las estrategias de
 
 #### 📄 1. Design System Architecture
 
-El sistema utiliza una infraestructura en la nube basada en **Cloud Run** para garantizar que cada empresa (tenant) tenga su entorno aislado.
+# 🏛️ Arquitectura del Ecosistema
 
+Este sistema utiliza un patrón de diseño **BFF (Backend for Frontend)** con una estrategia de **Persistencia Políglota**, separando las responsabilidades en capas especializadas.
 
-* **Frontend:** Flutter (Mobile) y Next.js + Tailwind (Desktop).
-* **BFF (Backend for Frontend):** Node.js.
+### 🖼️ Diagrama de Infraestructura
+```mermaid
+graph TD
+    %% Styles
+    classDef client fill:#e1f5fe,stroke:#01579b,stroke-width:2px,color:#01579b;
+    classDef backend fill:#fff3e0,stroke:#e65100,stroke-width:2px,color:#e65100;
+    classDef db fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px,color:#1b5e20;
+    classDef ai fill:#f3e5f5,stroke:#4a148c,stroke-width:2px,color:#4a148c;
 
-* **Agente:** Gemini API para la interpretación de lenguaje natural.
+    subgraph Clients ["💻 Capa de Presentación"]
+        Desktop[Web Dashboard<br/><i>Next.js + Tailwind</i>]:::client
+    end
 
-* **Persitencia:** Modelo hibrido de 2 bases de datos para optimizacion y rapidez
+    subgraph Cloud ["⚙️ Lógica de Negocio"]
+        BFF[BFF API Gateway<br/><i>Node.js Runtime</i>]:::backend
+    end
 
+    subgraph Data ["💾 Persistencia Políglota"]
+        Postgres[(PostgreSQL<br/>Relational Data)]:::db
+        Supabase[(Supabase/Mongo<br/>Flexible Product Data)]:::db
+    end
 
+    subgraph External ["🤖 Inteligencia Artificial"]
+        Gemini[Gemini API<br/><i>NLP & Intent Recognition</i>]:::ai
+    end
+
+    %%Connections
+    Desktop -->|HTTPS / REST| BFF
+    BFF -->|ORM / Prisma| Postgres
+    BFF -->|JSON Schema| Supabase
+    BFF -.->|Prompt Eng| Gemini
+    Gemini -.->|Structured Response| BFF
+```
+
+---
+
+### 🛠️ Desglose de la Infraestructura
+
+#### 🎨 Capa de Cliente (Presentación)
+![Next.js](https://img.shields.io/badge/Next.js-000000?style=flat&logo=nextdotjs&logoColor=white) ![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=flat&logo=tailwind-css&logoColor=white)
+* **Frontend:** Dashboard interactivo construido con **Next.js**.
+* **Comunicación:** Intercambio de datos mediante **HTTPS/REST**, optimizado para tiempos de respuesta bajos y una interfaz reactiva.
+
+#### 🧠 Lógica de Negocio (BFF Layer)
+![Node.js](https://img.shields.io/badge/Node.js-339933?style=flat&logo=nodedotjs&logoColor=white) ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)
+* **Backend for Frontend (BFF):** Actúa como orquestador único, centralizando la seguridad y la lógica de negocio.
+* **Aislamiento:** Garantiza que cada consulta respete los límites del **Multi-tenancy** mediante validación estricta de `tenant_id`.
+
+#### 💾 Persistencia de Datos Híbrida
+El sistema separa la información según su naturaleza para maximizar la eficiencia:
+
+| Almacenamiento | Tecnología | Datos Gestionados |
+| :--- | :--- | :--- |
+| **Relacional** | `PostgreSQL` | Usuarios, permisos, racks y trazabilidad de stock. |
+| **Documental** | `Supabase` | Catálogo de productos con atributos flexibles y esquemas variables. |
+
+#### 🤖 Inteligencia Artificial (NLP)
+![Google Gemini](https://img.shields.io/badge/Google_Gemini-8E75B2?style=flat&logo=googlegemini&logoColor=white)
+* **Motor Cognitivo:** Utiliza **Gemini API** para la interpretación de intenciones (*Intent Recognition*).
+* **Procesamiento:** Traduce las peticiones en lenguaje natural del usuario a parámetros de consulta técnicos y viceversa.
+
+> [!NOTE]
+> **Flujo de Ejecución:** El BFF coordina la entrada del usuario, solicita la interpretación a la IA, consulta las bases de datos correspondientes y devuelve una respuesta estructurada y humanizada.
+
+---
 ---
 
 #### 📄 Tarea 2 — Componentes, Clases y Diseño de Base de Datos
@@ -88,40 +146,51 @@ A continuación, se definen las clases principales que residen en la capa de ló
 Visualización de las entidades y sus métodos principales:
 
 ```mermaid
+---
+config:
+  layout: elk
+  look: neo
+  theme: default
+---
 classDiagram
-    class Tenant {
+    classDef core fill:#fff3e0,stroke:#e65100,stroke-width:2px;
+    classDef data fill:#fff3e0,stroke:#e65100,stroke-width:2px;
+    classDef ai #fff3e0,stroke:#e65100,stroke-width:2px;
+
+    class Tenant:::core {
         +UUID id
         +String companyName
         +Enum status
         +isActive() Boolean
     }
-    class User {
+    class User:::core {
         +UUID id
         +UUID tenantId
         +String name
         +role Enum
         +hasPermission(permission) Boolean
     }
-    class Product {
+    class Product:::data {
         +String id
         +UUID tenantId
         +String sku
         +JSON attributes
         +validateAttributes() Boolean
     }
-    class Rack {
+    class Rack:::data {
         +UUID id
+        +UUID tenantId
         +String code
         +location String
         +getStock() InventoryItem[]
     }
-    class InventoryItem {
+    class InventoryItem:::data {
         +UUID id
         +Integer quantity
         +increase(amount)
         +decrease(amount)
     }
-    class AIService {
+    class AIService:::ai {
         +String apiKey
         +interpretIntent(text)
         +formatResponse(data, query)
@@ -129,8 +198,12 @@ classDiagram
 
     Tenant "1" -- "*" User
     Tenant "1" -- "*" Product
+    Tenant "1" -- "*" Rack
     Product "1" -- "*" InventoryItem
     Rack "1" -- "*" InventoryItem
+
+    AIService ..> Product: Consult info
+    AIService ..> InventoryItem : Consults stock
 ```
 
 
