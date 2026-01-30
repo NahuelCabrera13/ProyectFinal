@@ -1,0 +1,58 @@
+---
+config:
+  layout: elk
+  look: neo
+  theme: default
+---
+classDiagram
+    classDef core fill:#fff3e0,stroke:#e65100,stroke-width:2px;
+    classDef data fill:#fff3e0,stroke:#e65100,stroke-width:2px;
+    classDef ai #fff3e0,stroke:#e65100,stroke-width:2px;
+
+    class Tenant:::core {
+        +UUID id
+        +String companyName
+        +Enum status
+        +isActive() Boolean
+    }
+    class User:::core {
+        +UUID id
+        +UUID tenantId
+        +String name
+        +role Enum
+        +hasPermission(permission) Boolean
+    }
+    class Product:::data {
+        +String id
+        +UUID tenantId
+        +String sku
+        +JSON attributes
+        +validateAttributes() Boolean
+    }
+    class Rack:::data {
+        +UUID id
+        +UUID tenantId
+        +String code
+        +location String
+        +getStock() InventoryItem[]
+    }
+    class InventoryItem:::data {
+        +UUID id
+        +Integer quantity
+        +increase(amount)
+        +decrease(amount)
+    }
+    class AIService:::ai {
+        +String apiKey
+        +interpretIntent(text)
+        +formatResponse(data, query)
+    }
+
+    Tenant "1" -- "*" User
+    Tenant "1" -- "*" Product
+    Tenant "1" -- "*" Rack
+    Product "1" -- "*" InventoryItem
+    Rack "1" -- "*" InventoryItem
+
+    AIService ..> Product: Consult info
+    AIService ..> InventoryItem : Consults stock
