@@ -2,7 +2,7 @@
 
 **Proyecto:** IAStock  
 **Fecha:** 21/01/2026  
-**Versión:** 1.0
+**Versión:** 1.1
 
 ---
 
