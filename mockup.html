@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IAStock - Intelligent Inventory</title>
+    <style>
+        :root {
+            --bg-dark: #f5f5f7;
+            /* Apple Light Gray */
+            --bg-card: rgba(255, 255, 255, 0.65);
+            /* Glass White */
+            --bg-sidebar: rgba(255, 255, 255, 0.4);
+            --primary: #007aff;
+            /* Apple Blue */
+            --accent: #5856d6;
+            /* Apple Purple */
+            --text-main: #1d1d1f;
+            /* Near Black */
+            --text-muted: #86868b;
+            /* Apple Gray */
+            --success: #34c759;
+            --danger: #ff3b30;
+            --warning: #ff9500;
+            --glass-border: 1px solid rgba(255, 255, 255, 0.5);
+            --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.04);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 250px;
+            background: var(--bg-sidebar);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-right: var(--glass-border);
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            background: linear-gradient(to right, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-item {
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .nav-item:hover,
+        .nav-item.active {
+            background: rgba(0, 122, 255, 0.1);
+            color: var(--primary);
+            font-weight: 500;
+        }
+
+        /* Main Content */
+        .main {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, var(--primary), var(--accent));
+        }
+
+        /* Dashboard Grid */
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: var(--glass-border);
+            box-shadow: var(--glass-shadow);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(to right, var(--primary), var(--accent));
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .card:hover::before {
+            opacity: 1;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 0.5rem 0;
+        }
+
+        .stat-label {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        /* AI Assistant Section */
+        .ai-section {
+            background: rgba(255, 255, 255, 0.8);
+            border: var(--glass-border);
+            border-radius: 1rem;
+            height: 400px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .ai-header {
+            padding: 1rem;
+            border-bottom: var(--glass-border);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .ai-badge {
+            background: rgba(139, 92, 246, 0.2);
+            color: var(--accent);
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .chat-area {
+            flex: 1;
+            padding: 1rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 0.75rem 1rem;
+            border-radius: 1rem;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .message.user {
+            background: var(--primary);
+            align-self: flex-end;
+            border-bottom-right-radius: 0.25rem;
+        }
+
+        .message.ai {
+            background: var(--bg-card);
+            align-self: flex-start;
+            border-bottom-left-radius: 0.25rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .input-area {
+            padding: 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        input {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.5);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            color: var(--text-main);
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            color: white;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: var(--primary);
+        }
+
+        button {
+            background: var(--primary);
+            border: none;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #2563eb;
+        }
+
+        /* Inventory Table */
+        .table-container {
+            background: var(--bg-card);
+            border-radius: 1rem;
+            overflow: hidden;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        th {
+            background: rgba(0, 0, 0, 0.02);
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 0.875rem;
+        }
+
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 2rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .status-stock {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+        }
+
+        .status-low {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--warning);
+        }
+
+        .status-critical {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+        }
+
+        /* Hidden Utility */
+        .hidden {
+            display: none;
+        }
+
+        /* Animations */
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.05);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        .mic-btn {
+            background: var(--bg-card);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-muted);
+        }
+
+        .mic-btn:hover {
+            color: var(--primary);
+            background: rgba(59, 130, 246, 0.1);
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <div class="logo">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round" />
+                <path d="M2 17L12 22L22 17" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round" />
+                <path d="M2 12L12 17L22 12" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round" />
+            </svg>
+            IAStock
+        </div>
+        <div class="nav-links">
+            <div class="nav-item active" onclick="switchTab('dashboard')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="7" height="9"></rect>
+                    <rect x="14" y="3" width="7" height="5"></rect>
+                    <rect x="14" y="12" width="7" height="9"></rect>
+                    <rect x="3" y="16" width="7" height="5"></rect>
+                </svg>
+                Dashboard
+            </div>
+            <div class="nav-item" onclick="switchTab('inventory')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path
+                        d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
+                    </path>
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                    <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                </svg>
+                Inventory
+            </div>
+            <div class="nav-item">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                    <polyline points="17 6 23 6 23 12"></polyline>
+                </svg>
+                Analytics
+            </div>
+            <div class="nav-item">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path
+                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 5 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+                    </path>
+                </svg>
+                Settings
+            </div>
+        </div>
+    </nav>
+    <!-- Main Content -->
+    <main class="main">
+        <header>
+            <h1 id="page-title">Dashboard</h1>
+            <div class="user-profile">
+                <span class="stat-label">Welcome, Andrés</span>
+                <div class="avatar"></div>
+            </div>
+        </header>
+        <!-- DASHBOARD VIEW -->
+        <div id="view-dashboard">
+            <div class="grid-container">
+                <div class="card">
+                    <div class="stat-label">Total SKUs</div>
+                    <div class="stat-value">1,248</div>
+                    <div style="color: var(--success); font-size: 0.875rem;">+12% this month</div>
+                </div>
+                <div class="card">
+                    <div class="stat-label">Low Stock Alerts</div>
+                    <div class="stat-value" style="color: var(--warning)">5</div>
+                    <div style="color: var(--text-muted); font-size: 0.875rem;">Needs attention</div>
+                </div>
+                <div class="card">
+                    <div class="stat-label">Total Value</div>
+                    <div class="stat-value">$45,200</div>
+                    <div style="color: var(--success); font-size: 0.875rem;">Stable</div>
+                </div>
+                <div class="card">
+                    <div class="stat-label">Pending Orders</div>
+                    <div class="stat-value">12</div>
+                    <div style="color: var(--primary); font-size: 0.875rem;">Processing</div>
+                </div>
+            </div>
+            <!-- AI SECTION -->
+            <div class="ai-section">
+                <div class="ai-header">
+                    <span style="font-weight: 600;">IAStock Assistant</span>
+                    <span class="ai-badge">ONLINE</span>
+                </div>
+                <div class="chat-area" id="chatContainer">
+                    <div class="message ai">
+                        Hello! I'm monitoring your inventory. How can I help you today?
+                    </div>
+                </div>
+                <div class="input-area">
+                    <button class="mic-btn">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                            <line x1="12" y1="19" x2="12" y2="23"></line>
+                            <line x1="8" y1="23" x2="16" y2="23"></line>
+                        </svg>
+                    </button>
+                    <input type="text" id="chatInput"
+                        placeholder="Ask AI: 'Where is the 10mm wire?' or 'Check stock for Rack B'...">
+                    <button onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+        <!-- INVENTORY VIEW -->
+        <div id="view-inventory" class="hidden">
+            <div class="grid-container">
+                <input type="text" placeholder="Search products..." style="grid-column: span 3;">
+                <button>+ Add Product</button>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>SKU</th>
+                            <th>Product Name</th>
+                            <th>Category</th>
+                            <th>Location</th>
+                            <th>Quantity</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>WR-10-CU</td>
+                            <td>Wire 10mm Copper</td>
+                            <td>Electrical</td>
+                            <td>Rack A-12</td>
+                            <td>500m</td>
+                            <td><span class="status-badge status-stock">In Stock</span></td>
+                        </tr>
+                        <tr>
+                            <td>PVC-20-TB</td>
+                            <td>PVC Tube 20mm</td>
+                            <td>Plumbing</td>
+                            <td>Rack B-05</td>
+                            <td>12</td>
+                            <td><span class="status-badge status-low">Low Stock</span></td>
+                        </tr>
+                        <tr>
+                            <td>CNT-50-X</td>
+                            <td>Connector Type X</td>
+                            <td>Components</td>
+                            <td>Rack A-01</td>
+                            <td>0</td>
+                            <td><span class="status-badge status-critical">Out of Stock</span></td>
+                        </tr>
+                        <tr>
+                            <td>LED-B-60</td>
+                            <td>Bulb LED 60W</td>
+                            <td>Lighting</td>
+                            <td>Rack C-22</td>
+                            <td>150</td>
+                            <td><span class="status-badge status-stock">In Stock</span></td>
+                        </tr>
+                        <tr>
+                            <td>GLV-L-PR</td>
+                            <td>Safety Gloves L</td>
+                            <td>Safety</td>
+                            <td>Rack D-10</td>
+                            <td>45</td>
+                            <td><span class="status-badge status-stock">In Stock</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+    <script>
+        function switchTab(tab) {
+            // Update Navigation
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+            // Switch Views
+            if (tab === 'dashboard') {
+                document.getElementById('view-dashboard').classList.remove('hidden');
+                document.getElementById('view-inventory').classList.add('hidden');
+                document.getElementById('page-title').innerText = 'Dashboard';
+            } else {
+                document.getElementById('view-dashboard').classList.add('hidden');
+                document.getElementById('view-inventory').classList.remove('hidden');
+                document.getElementById('page-title').innerText = 'Inventory Management';
+            }
+        }
+        function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const container = document.getElementById('chatContainer');
+            const text = input.value;
+            if (!text) return;
+            // Add User Message
+            const userDiv = document.createElement('div');
+            userDiv.className = 'message user';
+            userDiv.innerText = text;
+            container.appendChild(userDiv);
+            input.value = '';
+            container.scrollTop = container.scrollHeight;
+            // Simulate AI Delay
+            setTimeout(() => {
+                const aiDiv = document.createElement('div');
+                aiDiv.className = 'message ai';
+
+                // Simple logical responses
+                if (text.toLowerCase().includes('where')) {
+                    aiDiv.innerHTML = 'Checking database... <br>Found it! <b>Wire 10mm Copper</b> is located in <b>Rack A-12</b>.';
+                } else if (text.toLowerCase().includes('stock') || text.toLowerCase().includes('low')) {
+                    aiDiv.innerHTML = 'Currently, <b>PVC Tube 20mm</b> is running low (12 units left). Would you like to create a reorder request?';
+                } else {
+                    aiDiv.innerHTML = "I'm processing that request. I can help you find items, check stock levels, or manage alerts.";
+                }
+                container.appendChild(aiDiv);
+                container.scrollTop = container.scrollHeight;
+            }, 1000);
+        }
+        // Allow Enter key to send
+        document.getElementById('chatInput').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+
+</html>
